@@ -382,9 +382,38 @@ def chat_sidebar():
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     
-    # Initialize loading state
-    if 'is_loading' not in st.session_state:
-        st.session_state.is_loading = False
+    # Initialize loading states
+    if 'is_loading_chat' not in st.session_state:
+        st.session_state.is_loading_chat = False
+    
+    if 'pending_message' not in st.session_state:
+        st.session_state.pending_message = ""
+    
+    if 'pending_suggestion' not in st.session_state:
+        st.session_state.pending_suggestion = ""
+    
+    # Process pending chat message
+    if st.session_state.pending_message:
+        st.sidebar.info("🤖 AI is thinking...")
+        try:
+            response = send_to_webhook(st.session_state.pending_message)
+            st.session_state.chat_history.append((st.session_state.pending_message, response))
+        except Exception as e:
+            st.sidebar.error(f"Error: {str(e)}")
+        st.session_state.pending_message = ""
+        st.rerun()
+    
+    # Process pending suggestion
+    if st.session_state.pending_suggestion:
+        st.sidebar.info("🤖 AI is thinking...")
+        try:
+            message = f"Give me creative video ideas about: {st.session_state.pending_suggestion}"
+            response = send_to_webhook(message)
+            st.session_state.chat_history.append((st.session_state.pending_suggestion, response))
+        except Exception as e:
+            st.sidebar.error(f"Error: {str(e)}")
+        st.session_state.pending_suggestion = ""
+        st.rerun()
     
     # Display chat history
     if st.session_state.chat_history:
@@ -392,39 +421,28 @@ def chat_sidebar():
             st.sidebar.markdown(f'<div class="chat-message chat-user">You: {user_msg}</div>', unsafe_allow_html=True)
             st.sidebar.markdown(f'<div class="chat-message chat-bot">AI: {bot_msg}</div>', unsafe_allow_html=True)
     
-    # Loading indicator
-    if st.session_state.is_loading:
-        st.sidebar.info("🤖 AI is thinking...")
-    
-    # Chat input
+    # Chat input (don't disable, let user type while processing)
     user_input = st.sidebar.text_area(
         "Ask for video ideas:", 
         placeholder="e.g., 'Give me ideas for AI robot videos'", 
         height=80,
-        key="chat_input",
-        disabled=st.session_state.is_loading
+        key="chat_input"
     )
     
+    # Button controls
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        if st.button("🚀 Send", key="send_chat", disabled=st.session_state.is_loading):
+        send_disabled = bool(st.session_state.pending_message or st.session_state.pending_suggestion)
+        if st.button("🚀 Send", key="send_chat", disabled=send_disabled):
             if user_input.strip():
-                st.session_state.is_loading = True
+                st.session_state.pending_message = user_input
                 st.rerun()
     
     with col2:
-        if st.button("🗑️ Clear", key="clear_chat", disabled=st.session_state.is_loading):
+        clear_disabled = bool(st.session_state.pending_message or st.session_state.pending_suggestion)
+        if st.button("🗑️ Clear", key="clear_chat", disabled=clear_disabled):
             st.session_state.chat_history = []
             st.rerun()
-    
-    # Process chat message if loading
-    if st.session_state.is_loading and user_input.strip():
-        response = send_to_webhook(user_input)
-        st.session_state.chat_history.append((user_input, response))
-        st.session_state.is_loading = False
-        # Clear the input by updating session state
-        st.session_state.chat_input = ""
-        st.rerun()
     
     # Quick suggestion buttons
     st.sidebar.markdown("### 💡 Quick Ideas")
@@ -436,12 +454,10 @@ def chat_sidebar():
         "Tech workplace"
     ]
     
+    buttons_disabled = bool(st.session_state.pending_message or st.session_state.pending_suggestion)
     for i, suggestion in enumerate(suggestions):
-        if st.sidebar.button(suggestion, key=f"suggest_{i}", disabled=st.session_state.is_loading):
-            st.session_state.is_loading = True
-            response = send_to_webhook(f"Give me creative video ideas about: {suggestion}")
-            st.session_state.chat_history.append((suggestion, response))
-            st.session_state.is_loading = False
+        if st.sidebar.button(suggestion, key=f"suggest_{i}", disabled=buttons_disabled):
+            st.session_state.pending_suggestion = suggestion
             st.rerun()
     
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
