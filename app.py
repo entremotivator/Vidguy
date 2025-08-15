@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+import json
 from datetime import datetime
 import time
 
@@ -12,273 +13,602 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Enhanced custom CSS for colorful and modern styling
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    }
+    
     .video-card {
-        border: 1px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 20px;
-        margin: 10px 0;
-        background-color: #f9f9f9;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: none;
+        border-radius: 20px;
+        padding: 25px;
+        margin: 15px 0;
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .video-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    }
+    
+    .video-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffd93d);
+        background-size: 200% 100%;
+        animation: rainbow 3s linear infinite;
+    }
+    
+    @keyframes rainbow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
     }
     
     .card-header {
-        font-size: 1.2em;
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 10px;
+        font-size: 1.4em;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 12px;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .card-id {
+        display: inline-block;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 600;
+        margin-right: 10px;
     }
     
     .card-subtitle {
         font-size: 0.9em;
-        color: #666;
+        color: #718096;
         margin-bottom: 15px;
+        font-weight: 500;
     }
     
     .caption-text {
-        background-color: #e8f4f8;
-        padding: 10px;
-        border-radius: 5px;
+        background: linear-gradient(135deg, #e8f8ff 0%, #f0f8ff 100%);
+        border-left: 4px solid #4ecdc4;
+        padding: 15px;
+        border-radius: 10px;
         font-style: italic;
-        margin: 10px 0;
+        margin: 15px 0;
+        color: #2d3748;
+        position: relative;
+    }
+    
+    .caption-text::before {
+        content: '💬';
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        font-size: 1.2em;
     }
     
     .status-badge {
         display: inline-block;
-        padding: 4px 12px;
-        border-radius: 20px;
+        padding: 6px 16px;
+        border-radius: 25px;
         font-size: 0.8em;
-        font-weight: bold;
-        margin: 5px 0;
+        font-weight: 600;
+        margin: 8px 5px 8px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     .status-done {
-        background-color: #d4edda;
-        color: #155724;
+        background: linear-gradient(135deg, #48bb78, #38a169);
+        color: white;
+        box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
     }
     
     .status-pending {
-        background-color: #fff3cd;
-        color: #856404;
+        background: linear-gradient(135deg, #ed8936, #dd6b20);
+        color: white;
+        box-shadow: 0 4px 15px rgba(237, 137, 54, 0.3);
+    }
+    
+    .status-in-progress {
+        background: linear-gradient(135deg, #4299e1, #3182ce);
+        color: white;
+        box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
     }
     
     .video-container {
-        margin: 15px 0;
-        border-radius: 8px;
+        margin: 20px 0;
+        border-radius: 15px;
         overflow: hidden;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .environment-tag {
+        background: linear-gradient(135deg, #f093fb, #f5576c);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        margin: 10px 0;
+        display: inline-block;
+        font-weight: 500;
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        margin: 10px 0;
+    }
+    
+    .metric-number {
+        font-size: 2.5em;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .metric-label {
+        font-size: 0.9em;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .chat-container {
+        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 15px 0;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .chat-message {
+        background: white;
+        padding: 12px 16px;
+        border-radius: 18px;
+        margin: 8px 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .chat-user {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        margin-left: 20px;
+    }
+    
+    .chat-bot {
+        background: linear-gradient(135deg, #4ecdc4, #44a08d);
+        color: white;
+        margin-right: 20px;
+    }
+    
+    .navigation-pills {
+        display: flex;
+        gap: 10px;
+        margin: 20px 0;
+        flex-wrap: wrap;
+    }
+    
+    .nav-pill {
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+        border-radius: 20px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+    
+    .nav-pill:hover, .nav-pill.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .stSelectbox > div > div {
+        border-radius: 10px;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .stTextInput > div > div > input {
+        border-radius: 10px;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
 
+# Default configuration
+DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/13EGSQYUva5jutqW0hGmiPh_b1qIVsqGLcCwzoFNsj5g/edit?usp=drivesdk"
+WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook-test/98b5cc62-767d-484a-99cf-09c0ad616e92"
+
 def load_data_from_gsheets(sheet_url):
-    """
-    Load data from Google Sheets using a public URL
-    Convert the sharing URL to CSV export format
-    """
+    """Load data from Google Sheets using a public URL"""
     try:
-        # Convert Google Sheets URL to CSV export format
         if 'docs.google.com/spreadsheets' in sheet_url:
-            # Extract the sheet ID from the URL
             sheet_id = sheet_url.split('/d/')[1].split('/')[0]
             csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
         else:
             csv_url = sheet_url
             
-        # Load the data
         df = pd.read_csv(csv_url)
         return df
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return None
 
-def validate_video_url(url):
-    """Check if video URL is accessible"""
+def send_to_webhook(message):
+    """Send message to webhook and get response"""
     try:
-        response = requests.head(url, timeout=5)
-        return response.status_code == 200
-    except:
-        return False
+        payload = {"message": message, "user": "streamlit_user"}
+        response = requests.post(
+            WEBHOOK_URL, 
+            json=payload, 
+            headers={'Content-Type': 'application/json'},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            return response.json().get('response', 'No response received')
+        else:
+            return f"Error: {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error sending message: {str(e)}"
+
+def get_status_class(status):
+    """Get CSS class for status badge"""
+    if pd.isna(status):
+        return "status-pending"
+    status_lower = str(status).lower()
+    if status_lower == "done":
+        return "status-done"
+    elif status_lower in ["pending", "todo", "waiting"]:
+        return "status-pending"
+    elif status_lower in ["in progress", "working", "processing"]:
+        return "status-in-progress"
+    else:
+        return "status-pending"
 
 def display_video_card(row, index):
-    """Display a single video card"""
+    """Display a single enhanced video card"""
     with st.container():
         st.markdown('<div class="video-card">', unsafe_allow_html=True)
         
-        # Card header with ID and date
-        col1, col2 = st.columns([3, 1])
+        # Card header with ID and title
+        col1, col2 = st.columns([4, 1])
         with col1:
-            st.markdown(f'<div class="card-header">Video #{row["Id"]} - {row["Idea"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'''
+                <div class="card-header">
+                    <span class="card-id">#{row["Id"]}</span>
+                    {row["Idea"]}
+                </div>
+            ''', unsafe_allow_html=True)
         with col2:
             if pd.notna(row.get("Date")):
                 st.markdown(f'<div class="card-subtitle">📅 {row["Date"]}</div>', unsafe_allow_html=True)
         
         # Status badge
-        status = row.get("production", "Unknown")
-        status_class = "status-done" if status.lower() == "done" else "status-pending"
+        status = row.get("production", "Pending")
+        status_class = get_status_class(status)
         st.markdown(f'<span class="status-badge {status_class}">{status}</span>', unsafe_allow_html=True)
         
-        # Caption
+        # Caption with enhanced styling
         if pd.notna(row.get("Caption")):
-            st.markdown(f'<div class="caption-text">💬 {row["Caption"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="caption-text">{row["Caption"]}</div>', unsafe_allow_html=True)
         
-        # Environment prompt
+        # Environment prompt with colorful tag
         if pd.notna(row.get("environment_prompt")):
-            st.markdown(f"**Environment:** {row['environment_prompt']}")
+            st.markdown(f'<div class="environment-tag">🎬 {row["environment_prompt"]}</div>', unsafe_allow_html=True)
         
-        # Final prompt
+        # Full prompt in expander
         if pd.notna(row.get("Prompt")):
-            with st.expander("View Full Prompt"):
-                st.text(row["Prompt"])
+            with st.expander("🔍 View Full Prompt", expanded=False):
+                st.markdown(f"```\n{row['Prompt']}\n```")
         
-        # Video player
+        # Video player with enhanced container
         video_url = row.get("final_output", "")
         if pd.notna(video_url) and video_url.strip():
             st.markdown('<div class="video-container">', unsafe_allow_html=True)
-            try:
-                st.video(video_url)
-            except Exception as e:
-                st.error(f"Could not load video: {str(e)}")
-                st.markdown(f"**Video URL:** [Click to view]({video_url})")
+            col1, col2, col3 = st.columns([1, 3, 1])
+            with col2:
+                try:
+                    st.video(video_url)
+                except Exception as e:
+                    st.error(f"Could not load video: {str(e)}")
+                    st.markdown(f"**🔗 Direct Link:** [Open Video]({video_url})")
             st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.info("No video available for this entry")
+            st.info("🎬 Video coming soon...")
+        
+        # Action buttons
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button(f"👍 Like #{row['Id']}", key=f"like_{index}"):
+                st.success("Liked!")
+        with col2:
+            if st.button(f"📤 Share #{row['Id']}", key=f"share_{index}"):
+                st.info(f"Share this video: {video_url}")
+        with col3:
+            if st.button(f"💬 Comment #{row['Id']}", key=f"comment_{index}"):
+                st.info("Comment feature coming soon!")
         
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
 
-def main():
-    # Header
-    st.title("🎬 AI Video Dashboard")
-    st.markdown("### Live data from Google Sheets")
+def chat_sidebar():
+    """Enhanced chat sidebar for video ideas"""
+    st.sidebar.markdown("## 💭 AI Video Ideas Chat")
+    st.sidebar.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
-    # Sidebar for configuration
+    # Initialize chat history
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    # Display chat history
+    if st.session_state.chat_history:
+        for i, (user_msg, bot_msg) in enumerate(st.session_state.chat_history[-5:]):  # Show last 5
+            st.sidebar.markdown(f'<div class="chat-message chat-user">You: {user_msg}</div>', unsafe_allow_html=True)
+            st.sidebar.markdown(f'<div class="chat-message chat-bot">AI: {bot_msg}</div>', unsafe_allow_html=True)
+    
+    # Chat input
+    user_input = st.sidebar.text_area(
+        "Ask for video ideas:", 
+        placeholder="e.g., 'Give me ideas for AI robot videos'", 
+        height=80,
+        key="chat_input"
+    )
+    
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("🚀 Send", key="send_chat"):
+            if user_input.strip():
+                with st.sidebar.spinner("🤖 AI thinking..."):
+                    response = send_to_webhook(user_input)
+                st.session_state.chat_history.append((user_input, response))
+                st.rerun()
+    
+    with col2:
+        if st.button("🗑️ Clear", key="clear_chat"):
+            st.session_state.chat_history = []
+            st.rerun()
+    
+    # Quick suggestion buttons
+    st.sidebar.markdown("### 💡 Quick Ideas")
+    suggestions = [
+        "Futuristic robot scenes",
+        "AI in daily life",
+        "Cyberpunk cityscapes",
+        "Robot emotions",
+        "Tech workplace"
+    ]
+    
+    for suggestion in suggestions:
+        if st.sidebar.button(suggestion, key=f"suggest_{suggestion}"):
+            with st.sidebar.spinner("🤖 AI thinking..."):
+                response = send_to_webhook(f"Give me creative video ideas about: {suggestion}")
+            st.session_state.chat_history.append((suggestion, response))
+            st.rerun()
+    
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
+def main():
+    # Enhanced header
+    st.markdown('''
+        <div class="main-header">
+            <h1>🎬 AI Video Dashboard</h1>
+            <p>Create, manage, and showcase your AI-generated video content</p>
+        </div>
+    ''', unsafe_allow_html=True)
+    
+    # Sidebar configuration
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.markdown("## ⚙️ Dashboard Settings")
         
-        # Default Google Sheets URL input
-        default_url = "https://docs.google.com/spreadsheets/d/your-sheet-id/edit#gid=0"
+        # Sheet URL input with default
         sheet_url = st.text_input(
-            "Google Sheets URL:",
-            value=default_url,
-            help="Paste your Google Sheets URL here. Make sure it's publicly accessible (sharing settings: Anyone with the link can view)"
+            "📊 Google Sheets URL:",
+            value=DEFAULT_SHEET_URL,
+            help="Your Google Sheets URL (publicly accessible)"
         )
         
-        # Auto-refresh option
-        auto_refresh = st.checkbox("Auto-refresh every 30 seconds", value=False)
+        # Auto-refresh and manual refresh
+        col1, col2 = st.columns(2)
+        with col1:
+            auto_refresh = st.checkbox("🔄 Auto-refresh", value=False)
+        with col2:
+            if st.button("↻ Refresh"):
+                st.rerun()
         
-        # Manual refresh button
-        if st.button("🔄 Refresh Data"):
-            st.rerun()
+        st.markdown("---")
         
-        # Filters
-        st.header("🔍 Filters")
-        show_filters = st.checkbox("Enable Filters", value=False)
-    
-    # Auto-refresh logic
-    if auto_refresh:
-        placeholder = st.empty()
-        with placeholder:
-            st.info("Auto-refreshing in 30 seconds...")
-            time.sleep(30)
-            st.rerun()
+        # Chat sidebar
+        chat_sidebar()
+        
+        st.markdown("---")
+        
+        # Filters section
+        st.markdown("## 🔍 Filters & Navigation")
     
     # Load and display data
-    if sheet_url and sheet_url != default_url:
-        with st.spinner("Loading data from Google Sheets..."):
+    if sheet_url:
+        with st.spinner("🔄 Loading your awesome videos..."):
             df = load_data_from_gsheets(sheet_url)
         
         if df is not None and not df.empty:
-            # Display summary stats
+            # Navigation pills for quick filtering
+            st.markdown("### 🎯 Quick Navigation")
+            nav_cols = st.columns(5)
+            nav_options = ["All Videos", "Completed", "Pending", "With Video", "Recent"]
+            
+            selected_nav = None
+            for i, option in enumerate(nav_options):
+                with nav_cols[i]:
+                    if st.button(option, key=f"nav_{option}"):
+                        selected_nav = option
+            
+            # Enhanced metrics with colorful cards
             col1, col2, col3, col4 = st.columns(4)
+            
             with col1:
-                st.metric("Total Videos", len(df))
+                st.markdown(f'''
+                    <div class="metric-card">
+                        <div class="metric-number">{len(df)}</div>
+                        <div class="metric-label">Total Videos</div>
+                    </div>
+                ''', unsafe_allow_html=True)
+            
             with col2:
                 done_count = len(df[df.get("production", "").str.lower() == "done"]) if "production" in df.columns else 0
-                st.metric("Completed", done_count)
+                st.markdown(f'''
+                    <div class="metric-card" style="background: linear-gradient(135deg, #48bb78, #38a169);">
+                        <div class="metric-number">{done_count}</div>
+                        <div class="metric-label">Completed</div>
+                    </div>
+                ''', unsafe_allow_html=True)
+            
             with col3:
                 pending_count = len(df) - done_count
-                st.metric("Pending", pending_count)
+                st.markdown(f'''
+                    <div class="metric-card" style="background: linear-gradient(135deg, #ed8936, #dd6b20);">
+                        <div class="metric-number">{pending_count}</div>
+                        <div class="metric-label">Pending</div>
+                    </div>
+                ''', unsafe_allow_html=True)
+            
             with col4:
                 videos_with_output = len(df[df.get("final_output", "").notna() & (df.get("final_output", "") != "")])
-                st.metric("With Video", videos_with_output)
+                st.markdown(f'''
+                    <div class="metric-card" style="background: linear-gradient(135deg, #4ecdc4, #44a08d);">
+                        <div class="metric-number">{videos_with_output}</div>
+                        <div class="metric-label">With Video</div>
+                    </div>
+                ''', unsafe_allow_html=True)
             
-            # Apply filters if enabled
-            filtered_df = df.copy()
-            
-            if show_filters:
-                filter_col1, filter_col2 = st.columns(2)
+            # Advanced filters
+            with st.sidebar:
+                show_advanced = st.checkbox("🔧 Advanced Filters", value=False)
                 
-                with filter_col1:
+                filtered_df = df.copy()
+                
+                if show_advanced:
+                    # Status filter
                     if "production" in df.columns:
-                        status_filter = st.selectbox(
-                            "Filter by Status:",
-                            options=["All"] + list(df["production"].dropna().unique()),
-                            index=0
-                        )
+                        status_options = ["All"] + sorted(df["production"].dropna().unique().tolist())
+                        status_filter = st.selectbox("📊 Status Filter:", status_options)
                         if status_filter != "All":
                             filtered_df = filtered_df[filtered_df["production"] == status_filter]
-                
-                with filter_col2:
+                    
                     # Search filter
-                    search_term = st.text_input("Search in Ideas/Captions:")
+                    search_term = st.text_input("🔍 Search Videos:", placeholder="Search ideas, captions...")
                     if search_term:
                         mask = (
-                            filtered_df["Idea"].str.contains(search_term, case=False, na=False) |
-                            filtered_df["Caption"].str.contains(search_term, case=False, na=False)
+                            filtered_df.get("Idea", "").str.contains(search_term, case=False, na=False) |
+                            filtered_df.get("Caption", "").str.contains(search_term, case=False, na=False)
                         )
                         filtered_df = filtered_df[mask]
+                    
+                    # Date range filter
+                    if "Date" in df.columns and not df["Date"].isna().all():
+                        date_filter = st.checkbox("📅 Filter by Date")
+                        if date_filter:
+                            st.date_input("From Date:", key="start_date")
+                            st.date_input("To Date:", key="end_date")
             
-            # Display results count
-            if len(filtered_df) != len(df):
-                st.info(f"Showing {len(filtered_df)} of {len(df)} videos")
+            # Apply navigation filter
+            if selected_nav == "Completed":
+                filtered_df = filtered_df[filtered_df.get("production", "").str.lower() == "done"]
+            elif selected_nav == "Pending":
+                filtered_df = filtered_df[filtered_df.get("production", "").str.lower() != "done"]
+            elif selected_nav == "With Video":
+                filtered_df = filtered_df[filtered_df.get("final_output", "").notna() & (filtered_df.get("final_output", "") != "")]
+            elif selected_nav == "Recent":
+                if "Id" in filtered_df.columns:
+                    filtered_df = filtered_df.nlargest(10, "Id")
             
-            # Sort by Id (descending to show newest first)
+            # Sort options
+            sort_col1, sort_col2 = st.columns(2)
+            with sort_col1:
+                sort_by = st.selectbox("🔄 Sort by:", ["Id (Newest)", "Id (Oldest)", "Status", "Date"])
+            with sort_col2:
+                items_per_page = st.selectbox("📄 Items per page:", [5, 10, 20, 50], index=1)
+            
+            # Apply sorting
             if "Id" in filtered_df.columns:
-                filtered_df = filtered_df.sort_values("Id", ascending=False)
+                if sort_by == "Id (Newest)":
+                    filtered_df = filtered_df.sort_values("Id", ascending=False)
+                elif sort_by == "Id (Oldest)":
+                    filtered_df = filtered_df.sort_values("Id", ascending=True)
+                elif sort_by == "Status":
+                    filtered_df = filtered_df.sort_values("production", ascending=True, na_position='last')
+            
+            # Pagination
+            total_items = len(filtered_df)
+            if total_items > items_per_page:
+                total_pages = (total_items - 1) // items_per_page + 1
+                page = st.selectbox(f"📄 Page (1-{total_pages}):", range(1, total_pages + 1))
+                start_idx = (page - 1) * items_per_page
+                end_idx = start_idx + items_per_page
+                filtered_df = filtered_df.iloc[start_idx:end_idx]
+            
+            # Display results info
+            if len(filtered_df) != len(df):
+                st.info(f"📊 Showing {len(filtered_df)} of {len(df)} videos")
             
             # Display video cards
             if not filtered_df.empty:
+                st.markdown("### 🎬 Your Video Collection")
                 for index, row in filtered_df.iterrows():
                     display_video_card(row, index)
             else:
-                st.warning("No videos match your current filters.")
+                st.warning("🔍 No videos match your current filters. Try adjusting your search criteria!")
                 
         elif df is not None:
-            st.warning("The Google Sheets appears to be empty.")
+            st.warning("📭 The Google Sheets appears to be empty. Add some video data to get started!")
         else:
-            st.error("Could not load data. Please check your Google Sheets URL and sharing settings.")
-    else:
-        # Instructions for setting up
-        st.info("👆 Please enter your Google Sheets URL in the sidebar to get started.")
-        
-        st.markdown("""
-        ### 📝 Setup Instructions:
-        
-        1. **Open your Google Sheets document**
-        2. **Set sharing permissions:**
-           - Click "Share" button
-           - Change permissions to "Anyone with the link can view"
-           - Copy the sharing URL
-        3. **Paste the URL in the sidebar**
-        4. **Your data should appear automatically!**
-        
-        ### 📋 Expected Column Names:
-        - `Id` - Unique identifier
-        - `Idea` - Video concept/idea
-        - `Caption` - Social media caption
-        - `production` - Status (Done, Pending, etc.)
-        - `environment_prompt` - Environment description
-        - `final_output` - Video URL
-        - `Prompt` - Full generation prompt
-        - `Date` - Creation date
-        
-        ### 🎥 Video Format Support:
-        - MP4 files (recommended)
-        - Direct video links
-        - URLs must be publicly accessible
-        """)
+            st.error("❌ Could not load data. Please check your Google Sheets URL and sharing settings.")
+    
+    # Auto-refresh logic
+    if auto_refresh:
+        time.sleep(30)
+        st.rerun()
 
 if __name__ == "__main__":
     main()
