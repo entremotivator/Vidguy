@@ -382,33 +382,49 @@ def chat_sidebar():
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     
+    # Initialize loading state
+    if 'is_loading' not in st.session_state:
+        st.session_state.is_loading = False
+    
     # Display chat history
     if st.session_state.chat_history:
         for i, (user_msg, bot_msg) in enumerate(st.session_state.chat_history[-5:]):  # Show last 5
             st.sidebar.markdown(f'<div class="chat-message chat-user">You: {user_msg}</div>', unsafe_allow_html=True)
             st.sidebar.markdown(f'<div class="chat-message chat-bot">AI: {bot_msg}</div>', unsafe_allow_html=True)
     
+    # Loading indicator
+    if st.session_state.is_loading:
+        st.sidebar.info("🤖 AI is thinking...")
+    
     # Chat input
     user_input = st.sidebar.text_area(
         "Ask for video ideas:", 
         placeholder="e.g., 'Give me ideas for AI robot videos'", 
         height=80,
-        key="chat_input"
+        key="chat_input",
+        disabled=st.session_state.is_loading
     )
     
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        if st.button("🚀 Send", key="send_chat"):
+        if st.button("🚀 Send", key="send_chat", disabled=st.session_state.is_loading):
             if user_input.strip():
-                with st.sidebar.spinner("🤖 AI thinking..."):
-                    response = send_to_webhook(user_input)
-                st.session_state.chat_history.append((user_input, response))
+                st.session_state.is_loading = True
                 st.rerun()
     
     with col2:
-        if st.button("🗑️ Clear", key="clear_chat"):
+        if st.button("🗑️ Clear", key="clear_chat", disabled=st.session_state.is_loading):
             st.session_state.chat_history = []
             st.rerun()
+    
+    # Process chat message if loading
+    if st.session_state.is_loading and user_input.strip():
+        response = send_to_webhook(user_input)
+        st.session_state.chat_history.append((user_input, response))
+        st.session_state.is_loading = False
+        # Clear the input by updating session state
+        st.session_state.chat_input = ""
+        st.rerun()
     
     # Quick suggestion buttons
     st.sidebar.markdown("### 💡 Quick Ideas")
@@ -420,11 +436,12 @@ def chat_sidebar():
         "Tech workplace"
     ]
     
-    for suggestion in suggestions:
-        if st.sidebar.button(suggestion, key=f"suggest_{suggestion}"):
-            with st.sidebar.spinner("🤖 AI thinking..."):
-                response = send_to_webhook(f"Give me creative video ideas about: {suggestion}")
+    for i, suggestion in enumerate(suggestions):
+        if st.sidebar.button(suggestion, key=f"suggest_{i}", disabled=st.session_state.is_loading):
+            st.session_state.is_loading = True
+            response = send_to_webhook(f"Give me creative video ideas about: {suggestion}")
             st.session_state.chat_history.append((suggestion, response))
+            st.session_state.is_loading = False
             st.rerun()
     
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
@@ -455,6 +472,7 @@ def main():
             auto_refresh = st.checkbox("🔄 Auto-refresh", value=False)
         with col2:
             if st.button("↻ Refresh"):
+                st.session_state.data_loading = True
                 st.rerun()
         
         st.markdown("---")
@@ -469,7 +487,15 @@ def main():
     
     # Load and display data
     if sheet_url:
-        with st.spinner("🔄 Loading your awesome videos..."):
+        # Initialize loading state for data
+        if 'data_loading' not in st.session_state:
+            st.session_state.data_loading = False
+        
+        if st.session_state.data_loading:
+            st.info("🔄 Loading your awesome videos...")
+            df = load_data_from_gsheets(sheet_url)
+            st.session_state.data_loading = False
+        else:
             df = load_data_from_gsheets(sheet_url)
         
         if df is not None and not df.empty:
@@ -605,10 +631,17 @@ def main():
         else:
             st.error("❌ Could not load data. Please check your Google Sheets URL and sharing settings.")
     
-    # Auto-refresh logic
+    # Auto-refresh logic (simplified to avoid conflicts)
     if auto_refresh:
-        time.sleep(30)
-        st.rerun()
+        # Use a more controlled auto-refresh approach
+        if 'last_refresh' not in st.session_state:
+            st.session_state.last_refresh = time.time()
+        
+        current_time = time.time()
+        if current_time - st.session_state.last_refresh > 30:  # 30 seconds
+            st.session_state.last_refresh = current_time
+            st.session_state.data_loading = True
+            st.rerun()
 
 if __name__ == "__main__":
     main()
