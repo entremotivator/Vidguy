@@ -291,7 +291,7 @@ st.markdown("""
 # Default configuration
 DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/13EGSQYUva5jutqW0hGmiPh_b1qIVsqGLcCwzoFNsj5g/edit?usp=drivesdk"
 WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook-test/98b5cc62-767d-484a-99cf-09c0ad616e92"
-IMAGE_WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook-test/57b4f824-85f3-46eb-91eb-3e95e022e1fc"
+IMAGE_WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook-test/2640efb5-c7cd-4859-9242-81e6ce776038"
 
 def load_data_from_gsheets(sheet_url):
     """Load data from Google Sheets using a public URL"""
